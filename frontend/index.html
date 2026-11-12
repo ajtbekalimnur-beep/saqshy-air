@@ -1,0 +1,2984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAQSHY AIR — AI Indoor Air Intelligence</title>
+  <meta name="description" content="AI-powered indoor environmental intelligence platform. Monitor PM2.5, CO₂, temperature and humidity in real time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ===== DESIGN TOKENS ===== */
+    :root {
+      --bg-primary: #060d1f;
+      --bg-secondary: #0a1628;
+      --bg-card: rgba(10, 22, 40, 0.8);
+      --bg-card-hover: rgba(14, 30, 55, 0.9);
+      --bg-glass: rgba(255,255,255,0.03);
+      --border: rgba(0, 212, 255, 0.12);
+      --border-hover: rgba(0, 212, 255, 0.35);
+      --cyan: #00d4ff;
+      --cyan-dim: rgba(0, 212, 255, 0.15);
+      --cyan-glow: rgba(0, 212, 255, 0.4);
+      --blue: #0066ff;
+      --blue-dim: rgba(0, 102, 255, 0.15);
+      --purple: #8b5cf6;
+      --purple-dim: rgba(139, 92, 246, 0.15);
+      --green: #10d9a0;
+      --green-dim: rgba(16, 217, 160, 0.15);
+      --yellow: #f59e0b;
+      --yellow-dim: rgba(245, 158, 11, 0.15);
+      --orange: #f97316;
+      --orange-dim: rgba(249, 115, 22, 0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239, 68, 68, 0.15);
+      --text-primary: #f0f6ff;
+      --text-secondary: #8ba5c8;
+      --text-muted: #4a6080;
+      --sidebar-w: 260px;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+      --shadow-glow: 0 0 24px rgba(0, 212, 255, 0.15);
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: -20%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(0, 102, 255, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      right: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(ellipse, rgba(0, 212, 255, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== SCROLLBARS ===== */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.2); border-radius: 2px; }
+
+    /* ===== SIDEBAR ===== */
+    #sidebar {
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: rgba(6, 13, 31, 0.95);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0; top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      flex-shrink: 0;
+    }
+    .sidebar-logo {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px rgba(0,212,255,0.3);
+      flex-shrink: 0;
+    }
+    .logo-text h1 {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #fff, var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo-text p {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .sidebar-nav {
+      flex: 1;
+      padding: 16px 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      padding: 12px 8px 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      position: relative;
+      border: 1px solid transparent;
+    }
+    .nav-item:hover {
+      background: var(--cyan-dim);
+      color: var(--text-primary);
+      border-color: var(--border);
+    }
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(0,212,255,0.12), rgba(0,102,255,0.08));
+      color: var(--cyan);
+      border-color: rgba(0,212,255,0.25);
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; height: 60%;
+      width: 2px;
+      background: var(--cyan);
+      border-radius: 1px;
+      box-shadow: 0 0 8px var(--cyan);
+    }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--red);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 20px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .demo-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .demo-toggle:hover { border-color: var(--border-hover); }
+    .demo-toggle-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .toggle-switch {
+      width: 36px; height: 20px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      position: relative;
+      transition: var(--transition);
+    }
+    .toggle-switch.on { background: var(--cyan); }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: var(--transition);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .toggle-switch.on::after { left: 19px; }
+
+    /* ===== MAIN CONTENT ===== */
+    #main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== DEMO BANNER ===== */
+    #demo-banner {
+      display: none;
+      background: linear-gradient(90deg, rgba(245,158,11,0.15), rgba(249,115,22,0.15));
+      border-bottom: 1px solid rgba(245,158,11,0.3);
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    #demo-banner.hidden { display: none !important; }
+    .demo-badge {
+      background: var(--yellow);
+      color: #000;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      animation: pulse-badge 2s ease-in-out infinite;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .demo-banner-text { font-size: 13px; color: var(--yellow); font-weight: 500; }
+    .demo-scenario-select {
+      margin-left: auto;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(245,158,11,0.3);
+      color: var(--text-primary);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .demo-scenario-select option { background: #0a1628; }
+
+    /* ===== TOP BAR ===== */
+    #topbar {
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(6,13,31,0.6);
+      backdrop-filter: blur(20px);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .topbar-title h2 { font-size: 20px; font-weight: 700; }
+    .topbar-title p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .topbar-actions { display: flex; align-items: center; gap: 12px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      border: none;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      color: white;
+      box-shadow: 0 4px 15px rgba(0,102,255,0.3);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,102,255,0.4); }
+    .btn-ghost {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover { border-color: var(--border-hover); color: var(--text-primary); }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+      box-shadow: 0 0 8px var(--green);
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.8); }
+    }
+
+    /* ===== PAGE CONTENT ===== */
+    #page-content {
+      flex: 1;
+      padding: 24px 28px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== PAGES ===== */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: var(--transition);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-glow); }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+    .card-icon { font-size: 20px; }
+
+    /* ===== GRID LAYOUTS ===== */
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+    /* ===== METRIC CARDS ===== */
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent, var(--cyan));
+      opacity: 0.6;
+    }
+    .metric-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .metric-value {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-unit { font-size: 14px; font-weight: 400; color: var(--text-secondary); margin-left: 4px; }
+    .metric-status {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      display: inline-block;
+      margin-top: 8px;
+    }
+    .status-good { background: var(--green-dim); color: var(--green); }
+    .status-moderate { background: var(--yellow-dim); color: var(--yellow); }
+    .status-poor { background: var(--orange-dim); color: var(--orange); }
+    .status-danger { background: var(--red-dim); color: var(--red); }
+    .metric-trend {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .trend-up { color: var(--red); }
+    .trend-down { color: var(--green); }
+    .trend-stable { color: var(--text-muted); }
+    .metric-mini-chart { margin-top: 12px; height: 50px; }
+
+    /* ===== AQI GAUGE ===== */
+    .aqi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .aqi-gauge-wrap { position: relative; width: 160px; height: 100px; }
+    .aqi-gauge-bg {
+      width: 160px; height: 80px;
+      border-radius: 80px 80px 0 0;
+      border: 12px solid rgba(255,255,255,0.05);
+      border-bottom: none;
+      position: absolute;
+      top: 0;
+    }
+    .aqi-gauge-fill {
+      width: 160px; height: 80px;
+      border-radius: 80px 80px 0 0;
+      border: 12px solid;
+      border-bottom: none;
+      position: absolute;
+      top: 0;
+      transition: all 1s ease;
+      clip-path: inset(0 0 0 0);
+    }
+    .aqi-score {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 36px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .aqi-label { font-size: 11px; color: var(--text-muted); margin-top: 8px; letter-spacing: 1px; text-transform: uppercase; }
+    .aqi-desc { font-size: 15px; font-weight: 700; margin-top: 4px; }
+
+    /* ===== ALERTS ===== */
+    .alert-card {
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      border: 1px solid;
+    }
+    .alert-good { background: var(--green-dim); border-color: rgba(16,217,160,0.3); }
+    .alert-moderate { background: var(--yellow-dim); border-color: rgba(245,158,11,0.3); }
+    .alert-poor { background: var(--orange-dim); border-color: rgba(249,115,22,0.3); }
+    .alert-danger { background: var(--red-dim); border-color: rgba(239,68,68,0.3); }
+    .alert-critical {
+      background: rgba(239,68,68,0.2);
+      border: 2px solid var(--red);
+      animation: flash-border 1s ease-in-out infinite;
+    }
+    @keyframes flash-border {
+      0%, 100% { border-color: var(--red); }
+      50% { border-color: rgba(239,68,68,0.3); }
+    }
+    .alert-icon { font-size: 18px; flex-shrink: 0; }
+    .alert-title { font-size: 13px; font-weight: 700; }
+    .alert-desc { font-size: 12px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+
+    /* ===== CHARTS ===== */
+    .chart-container { position: relative; height: 220px; }
+    .chart-container.tall { height: 280px; }
+    .chart-container.small { height: 140px; }
+
+    /* ===== AI CHAT ===== */
+    #ai-page {
+      display: none;
+      flex-direction: column;
+      height: calc(100vh - 80px);
+    }
+    #ai-page.active { display: flex; }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .message {
+      display: flex;
+      gap: 12px;
+      max-width: 85%;
+      animation: msg-in 0.3s ease;
+    }
+    @keyframes msg-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .msg-avatar.ai { background: linear-gradient(135deg, var(--blue), var(--cyan)); box-shadow: 0 0 12px rgba(0,212,255,0.3); }
+    .msg-avatar.user { background: rgba(255,255,255,0.08); border: 1px solid var(--border); }
+    .msg-bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .message.ai .msg-bubble {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+      color: var(--text-primary);
+    }
+    .message.user .msg-bubble {
+      background: linear-gradient(135deg, rgba(0,102,255,0.3), rgba(0,212,255,0.2));
+      border: 1px solid rgba(0,212,255,0.25);
+      border-top-right-radius: 4px;
+      color: var(--text-primary);
+    }
+    .msg-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .typing-indicator {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      padding: 12px 16px;
+    }
+    .typing-dot {
+      width: 7px; height: 7px;
+      background: var(--cyan);
+      border-radius: 50%;
+      animation: typing 1.4s ease infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: rgba(6,13,31,0.8);
+      backdrop-filter: blur(20px);
+    }
+    .suggested-questions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .suggested-q {
+      padding: 6px 12px;
+      background: var(--blue-dim);
+      border: 1px solid rgba(0,102,255,0.25);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--cyan);
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .suggested-q:hover { background: rgba(0,102,255,0.25); border-color: var(--cyan); }
+    .chat-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      transition: var(--transition);
+      min-height: 48px;
+      max-height: 120px;
+    }
+    .chat-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,212,255,0.08); }
+    .chat-input::placeholder { color: var(--text-muted); }
+    .send-btn {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: var(--transition);
+      flex-shrink: 0;
+      box-shadow: 0 4px 15px rgba(0,102,255,0.3);
+    }
+    .send-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,102,255,0.4); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ===== SOURCE INTELLIGENCE ===== */
+    .source-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: var(--transition);
+    }
+    .source-card:hover { border-color: var(--border-hover); }
+    .confidence-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .confidence-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 1s ease;
+    }
+    .evidence-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      background: var(--blue-dim);
+      border: 1px solid rgba(0,102,255,0.2);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--cyan);
+      margin: 3px;
+    }
+
+    /* ===== EQUIPMENT ===== */
+    .device-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .device-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-glow); }
+    .device-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .device-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .device-online { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,217,160,0.3); }
+    .device-standby { background: var(--blue-dim); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+    .device-offline { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); }
+    .device-rec {
+      background: var(--cyan-dim);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--cyan);
+      line-height: 1.5;
+    }
+    .device-control-btn {
+      width: 100%;
+      padding: 8px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .device-control-btn:hover { border-color: var(--border-hover); color: var(--cyan); }
+
+    /* ===== UV-C SECTION ===== */
+    .uvc-card {
+      background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(0,102,255,0.08));
+      border: 1px solid rgba(139,92,246,0.25);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .uvc-title { font-size: 16px; font-weight: 700; color: var(--purple); margin-bottom: 8px; }
+    .uvc-warning {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      color: #fca5a5;
+      margin-top: 12px;
+    }
+
+    /* ===== SETTINGS ===== */
+    .settings-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .settings-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--text-primary); }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label { font-size: 13px; color: var(--text-secondary); }
+    .settings-row-label small { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .settings-input {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      width: 240px;
+      outline: none;
+      transition: var(--transition);
+    }
+    .settings-input:focus { border-color: var(--cyan); }
+
+    /* ===== ROOM SELECTOR ===== */
+    .room-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .room-tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .room-tab:hover { border-color: var(--border-hover); color: var(--text-primary); }
+    .room-tab.active {
+      background: var(--cyan-dim);
+      border-color: rgba(0,212,255,0.4);
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    /* ===== HISTORY ===== */
+    .report-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .report-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 13px;
+    }
+    .report-stat:last-child { border-bottom: none; }
+    .report-stat-label { color: var(--text-secondary); }
+    .report-stat-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    /* ===== SECTION HEADERS ===== */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title { font-size: 16px; font-weight: 700; }
+    .section-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* ===== SENSOR STATUS ===== */
+    .sensor-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .sensor-row:last-child { border-bottom: none; }
+    .sensor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sensor-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse-dot 2s ease-in-out infinite; }
+    .sensor-dot.offline { background: var(--text-muted); }
+    .sensor-dot.simulated { background: var(--yellow); }
+    .sensor-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .sensor-info { font-size: 11px; color: var(--text-muted); }
+    .sensor-battery {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--green);
+    }
+
+    /* ===== LOADING ===== */
+    .loading-pulse {
+      animation: loading-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes loading-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ===== CO EMERGENCY MODAL ===== */
+    #co-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+    }
+    #co-modal.show { display: flex; }
+    .co-modal-box {
+      background: #1a0000;
+      border: 2px solid var(--red);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 480px;
+      text-align: center;
+      animation: flash-border 1s ease-in-out infinite;
+      box-shadow: 0 0 60px rgba(239,68,68,0.5);
+    }
+    .co-modal-icon { font-size: 64px; margin-bottom: 16px; animation: pulse-badge 1s ease-in-out infinite; }
+    .co-modal-title { font-size: 28px; font-weight: 900; color: var(--red); margin-bottom: 12px; }
+    .co-modal-text { font-size: 16px; line-height: 1.6; color: #fca5a5; margin-bottom: 24px; }
+    .co-modal-steps { text-align: left; background: rgba(239,68,68,0.1); border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .co-modal-step { font-size: 14px; color: white; padding: 6px 0; }
+
+    /* ===== SCENARIO PROGRESS ===== */
+    .scenario-progress {
+      background: var(--bg-card);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .scenario-title { font-size: 15px; font-weight: 700; color: var(--yellow); margin-bottom: 8px; }
+    .scenario-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .scenario-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--yellow), var(--orange));
+      border-radius: 2px;
+      transition: width 1s linear;
+    }
+    .scenario-step { font-size: 12px; color: var(--text-secondary); }
+
+    /* ===== TAG ===== */
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tag-cyan { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+    .tag-blue { background: var(--blue-dim); color: #60a5fa; border: 1px solid rgba(96,165,250,0.2); }
+    .tag-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,217,160,0.2); }
+    .tag-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,158,11,0.2); }
+    .tag-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+    .tag-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(139,92,246,0.2); }
+
+    /* ===== DIVIDER ===== */
+    hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    /* ===== PROGRESS BAR ===== */
+    .progress-bar { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+
+    /* ===== MARKDOWN-LIKE ===== */
+    .text-sm { font-size: 13px; }
+    .text-xs { font-size: 11px; }
+    .text-muted { color: var(--text-muted); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-cyan { color: var(--cyan); }
+    .text-green { color: var(--green); }
+    .text-yellow { color: var(--yellow); }
+    .text-red { color: var(--red); }
+    .fw-700 { font-weight: 700; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+    .mb-24 { margin-bottom: 24px; }
+    .mt-8 { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .gap-8 { gap: 8px; }
+    .gap-12 { gap: 12px; }
+    .w-full { width: 100%; }
+    .p-16 { padding: 16px; }
+
+    /* ===== SPARKLINE ===== */
+    canvas.sparkline { display: block; }
+
+    /* ===== BACK GLOW EFFECT ===== */
+    .glow-cyan { box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+    .glow-blue { box-shadow: 0 0 20px rgba(0,102,255,0.2); }
+    .glow-green { box-shadow: 0 0 20px rgba(16,217,160,0.2); }
+
+    /* ===== MONOSPACE ===== */
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* ===== INLINE SPINNER ===== */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,212,255,0.3);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ===== CO EMERGENCY MODAL ===== -->
+<div id="co-modal">
+  <div class="co-modal-box">
+    <div class="co-modal-icon">🚨</div>
+    <div class="co-modal-title">CARBON MONOXIDE ALERT</div>
+    <div class="co-modal-text">Dangerous CO levels have been detected.<br/>Take immediate action — do not wait for further analysis.</div>
+    <div class="co-modal-steps">
+      <div class="co-modal-step">1️⃣ <strong>Leave the building immediately</strong></div>
+      <div class="co-modal-step">2️⃣ <strong>Call emergency services (112 / 911)</strong></div>
+      <div class="co-modal-step">3️⃣ <strong>Do NOT re-enter until cleared by professionals</strong></div>
+      <div class="co-modal-step">4️⃣ <strong>Do not open windows as a substitute for evacuation</strong></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);">SAQSHY AIR is not a certified life-safety device. Maintain a certified CO alarm independently.</div>
+  </div>
+</div>
+
+<!-- ===== SIDEBAR ===== -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">💨</div>
+    <div class="logo-text">
+      <h1>SAQSHY AIR</h1>
+      <p>AI Environmental Intelligence</p>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Monitor</div>
+    <div class="nav-item active" onclick="navigate('overview')" id="nav-overview">
+      <span class="nav-icon">🏠</span> Overview
+    </div>
+    <div class="nav-item" onclick="navigate('monitoring')" id="nav-monitoring">
+      <span class="nav-icon">📡</span> Air Monitoring
+    </div>
+    <div class="nav-item" onclick="navigate('sources')" id="nav-sources">
+      <span class="nav-icon">🔍</span> Source Intelligence
+    </div>
+
+    <div class="nav-section-label">Intelligence</div>
+    <div class="nav-item" onclick="navigate('ai')" id="nav-ai">
+      <span class="nav-icon">🤖</span> AI Assistant
+    </div>
+    <div class="nav-item" onclick="navigate('equipment')" id="nav-equipment">
+      <span class="nav-icon">⚙️</span> Smart Equipment
+    </div>
+    <div class="nav-item" onclick="navigate('uvc')" id="nav-uvc">
+      <span class="nav-icon">🔬</span> UV-C Education
+    </div>
+
+    <div class="nav-section-label">Data</div>
+    <div class="nav-item" onclick="navigate('reports')" id="nav-reports">
+      <span class="nav-icon">📊</span> History &amp; Reports
+    </div>
+    <div class="nav-item" onclick="navigate('settings')" id="nav-settings">
+      <span class="nav-icon">⚙️</span> Settings
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="demo-toggle" onclick="toggleDemo()">
+      <div>
+        <div class="demo-toggle-label">DEMO MODE</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Simulated data</div>
+      </div>
+      <div class="toggle-switch on" id="demo-toggle-switch"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== MAIN ===== -->
+<div id="main">
+  <!-- DEMO BANNER -->
+  <div id="demo-banner">
+    <div class="demo-badge">DEMO</div>
+    <div class="demo-banner-text">Simulated sensor data — not real measurements</div>
+    <select class="demo-scenario-select" id="scenario-select" onchange="changeScenario(this.value)">
+      <option value="normal">🌿 Normal Conditions</option>
+      <option value="cooking">🍳 Cooking Event</option>
+      <option value="outdoor">🌫️ Outdoor Pollution</option>
+      <option value="humidity">💧 Low Humidity</option>
+      <option value="ventilation">🌬️ Poor Ventilation (CO₂)</option>
+      <option value="improvement">✅ Air Improvement</option>
+    </select>
+  </div>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="topbar-title">
+      <h2 id="page-title">Overview</h2>
+      <p id="page-sub">Real-time indoor environmental intelligence</p>
+    </div>
+    <div class="topbar-actions">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+        <div class="status-dot" id="live-dot"></div>
+        <span id="live-label">LIVE</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;" id="last-update">Updated just now</div>
+      <button class="btn btn-ghost" onclick="refreshData()">🔄 Refresh</button>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div id="page-content">
+
+    <!-- ===== OVERVIEW PAGE ===== -->
+    <div class="page active" id="page-overview">
+      <div id="scenario-banner" style="display:none;" class="scenario-progress">
+        <div class="scenario-title" id="scenario-name">🍳 Cooking Event in Progress</div>
+        <div class="scenario-step" id="scenario-step">PM2.5 levels rising — cooking detected</div>
+        <div class="scenario-bar"><div class="scenario-fill" id="scenario-fill" style="width:30%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);">
+          <span>Start</span><span id="scenario-pct">30%</span><span>End</span>
+        </div>
+      </div>
+
+      <!-- AQI + Status -->
+      <div class="grid-1-2 mb-24">
+        <div class="aqi-card">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:16px;">Indoor Air Quality</div>
+          <div style="position:relative;width:160px;height:110px;">
+            <canvas id="aqi-gauge-canvas" width="160" height="110"></canvas>
+            <div style="position:absolute;bottom:0;width:100%;text-align:center;">
+              <div class="aqi-score" id="aqi-score" style="color:var(--green);">82</div>
+            </div>
+          </div>
+          <div class="aqi-label">AIR QUALITY INDEX</div>
+          <div class="aqi-desc" id="aqi-desc" style="color:var(--green);">Good</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;" id="aqi-explain">Air quality is satisfactory. No significant health concerns.</div>
+        </div>
+        <div>
+          <div id="alerts-container">
+            <div class="alert-card alert-good">
+              <div class="alert-icon">✅</div>
+              <div>
+                <div class="alert-title">All measurements within acceptable range</div>
+                <div class="alert-desc">Indoor air quality is currently good. Continue monitoring for changes.</div>
+              </div>
+            </div>
+          </div>
+          <div class="card mt-16" style="margin-top:16px;">
+            <div class="card-header">
+              <div class="card-title">Outdoor vs Indoor PM2.5</div>
+              <span class="tag tag-blue">Comparison</span>
+            </div>
+            <div class="chart-container small">
+              <canvas id="outdoor-compare-chart"></canvas>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--cyan);display:inline-block;"></span>Indoor</span>
+              <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--orange);display:inline-block;"></span>Outdoor (simulated)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric Cards -->
+      <div class="grid-4 mb-24" id="metric-cards">
+        <div class="metric-card" style="--accent:var(--cyan);" id="card-pm25">
+          <div class="metric-label">🌫️ PM2.5</div>
+          <div class="metric-value" id="val-pm25">5.2<span class="metric-unit">µg/m³</span></div>
+          <div class="metric-status status-good" id="status-pm25">Good</div>
+          <div class="metric-trend" id="trend-pm25"><span class="trend-stable">→</span> Stable</div>
+          <div class="metric-mini-chart"><canvas id="spark-pm25"></canvas></div>
+        </div>
+        <div class="metric-card" style="--accent:var(--blue);" id="card-co2">
+          <div class="metric-label">☁️ CO₂</div>
+          <div class="metric-value" id="val-co2">450<span class="metric-unit">ppm</span></div>
+          <div class="metric-status status-good" id="status-co2">Good</div>
+          <div class="metric-trend" id="trend-co2"><span class="trend-stable">→</span> Stable</div>
+          <div class="metric-mini-chart"><canvas id="spark-co2"></canvas></div>
+        </div>
+        <div class="metric-card" style="--accent:var(--orange);" id="card-temp">
+          <div class="metric-label">🌡️ Temperature</div>
+          <div class="metric-value" id="val-temp">22.1<span class="metric-unit">°C</span></div>
+          <div class="metric-status status-good" id="status-temp">Comfortable</div>
+          <div class="metric-trend" id="trend-temp"><span class="trend-stable">→</span> Stable</div>
+          <div class="metric-mini-chart"><canvas id="spark-temp"></canvas></div>
+        </div>
+        <div class="metric-card" style="--accent:var(--purple);" id="card-hum">
+          <div class="metric-label">💧 Humidity</div>
+          <div class="metric-value" id="val-hum">45<span class="metric-unit">%</span></div>
+          <div class="metric-status status-good" id="status-hum">Optimal</div>
+          <div class="metric-trend" id="trend-hum"><span class="trend-stable">→</span> Stable</div>
+          <div class="metric-mini-chart"><canvas id="spark-hum"></canvas></div>
+        </div>
+      </div>
+
+      <!-- 24h Chart -->
+      <div class="card mb-24">
+        <div class="card-header">
+          <div class="card-title">24-Hour PM2.5 &amp; CO₂ History</div>
+          <div style="display:flex;gap:8px;">
+            <span class="tag tag-cyan">PM2.5</span>
+            <span class="tag tag-blue">CO₂</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="history-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Bottom Row -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Temperature &amp; Humidity Trend</div>
+          </div>
+          <div class="chart-container small">
+            <canvas id="temp-hum-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">AI Recommendation</div>
+            <span class="tag tag-cyan">Auto-updated</span>
+          </div>
+          <div id="ai-rec-card" style="font-size:13px;line-height:1.7;color:var(--text-secondary);">
+            🌿 <strong style="color:var(--green);">Air quality is good.</strong><br/>
+            Indoor PM2.5 (5.2 µg/m³) is well below the WHO 24-hour guideline of 15 µg/m³.<br/>
+            CO₂ at 450 ppm indicates excellent ventilation.<br/>
+            Humidity of 45% is in the ideal range (40–60%).<br/>
+            <span style="font-size:11px;color:var(--text-muted);">💡 Continue current ventilation habits. No action required.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MONITORING PAGE ===== -->
+    <div class="page" id="page-monitoring">
+      <div class="room-tabs" id="room-tabs">
+        <button class="room-tab active" onclick="selectRoom(this,'living')">🛋️ Living Room</button>
+        <button class="room-tab" onclick="selectRoom(this,'bedroom')">🛏️ Bedroom</button>
+        <button class="room-tab" onclick="selectRoom(this,'kitchen')">🍳 Kitchen</button>
+        <button class="room-tab" onclick="selectRoom(this,'children')">👶 Children's Room</button>
+      </div>
+
+      <div class="grid-4 mb-24">
+        <div class="metric-card" style="--accent:var(--cyan);">
+          <div class="metric-label">🌫️ PM2.5</div>
+          <div class="metric-value" id="mon-pm25">5.2<span class="metric-unit">µg/m³</span></div>
+          <div class="metric-status status-good" id="mon-status-pm25">Good — WHO 24h: 15 µg/m³</div>
+          <div class="metric-trend" id="mon-trend-pm25">→ Stable over last hour</div>
+        </div>
+        <div class="metric-card" style="--accent:var(--blue);">
+          <div class="metric-label">☁️ CO₂</div>
+          <div class="metric-value" id="mon-co2">450<span class="metric-unit">ppm</span></div>
+          <div class="metric-status status-good" id="mon-status-co2">Good — Outdoor baseline ~420 ppm</div>
+          <div class="metric-trend" id="mon-trend-co2">→ Excellent ventilation</div>
+        </div>
+        <div class="metric-card" style="--accent:var(--orange);">
+          <div class="metric-label">🌡️ Temperature</div>
+          <div class="metric-value" id="mon-temp">22.1<span class="metric-unit">°C</span></div>
+          <div class="metric-status status-good" id="mon-status-temp">Comfortable (18–26°C)</div>
+          <div class="metric-trend" id="mon-trend-temp">→ Stable</div>
+        </div>
+        <div class="metric-card" style="--accent:var(--purple);">
+          <div class="metric-label">💧 Humidity</div>
+          <div class="metric-value" id="mon-hum">45<span class="metric-unit">%</span></div>
+          <div class="metric-status status-good" id="mon-status-hum">Optimal (40–60%)</div>
+          <div class="metric-trend" id="mon-trend-hum">→ Stable</div>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-24">
+        <div class="card">
+          <div class="card-header"><div class="card-title">PM2.5 — 24 Hour</div></div>
+          <div class="chart-container"><canvas id="mon-pm25-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">CO₂ — 24 Hour</div></div>
+          <div class="chart-container"><canvas id="mon-co2-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Sensor Status -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Sensor Status</div>
+          <span class="tag tag-yellow">DEMO — Simulated</span>
+        </div>
+        <div class="sensor-row">
+          <div class="sensor-dot simulated"></div>
+          <div class="sensor-name">SensorNode-01 (PM2.5 + CO₂)</div>
+          <div class="sensor-info">Living Room · Last seen: just now</div>
+          <div class="sensor-battery">🔋 87%</div>
+        </div>
+        <div class="sensor-row">
+          <div class="sensor-dot simulated"></div>
+          <div class="sensor-name">SensorNode-02 (Temp + Humidity)</div>
+          <div class="sensor-info">Bedroom · Last seen: just now</div>
+          <div class="sensor-battery">🔋 92%</div>
+        </div>
+        <div class="sensor-row">
+          <div class="sensor-dot offline"></div>
+          <div class="sensor-name">SensorNode-03 (PM2.5)</div>
+          <div class="sensor-info">Kitchen · Last seen: 2 hours ago</div>
+          <div style="font-size:11px;color:var(--red);">⚠️ Offline</div>
+        </div>
+        <div class="sensor-row">
+          <div class="sensor-dot simulated"></div>
+          <div class="sensor-name">SensorNode-04 (Full Suite)</div>
+          <div class="sensor-info">Children's Room · Last seen: just now</div>
+          <div class="sensor-battery">🔋 65%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AI ASSISTANT PAGE ===== -->
+    <div class="page" id="page-ai" style="padding:0;">
+      <div id="chat-messages" class="chat-messages">
+        <div class="message ai">
+          <div class="msg-avatar ai">🤖</div>
+          <div>
+            <div class="msg-bubble">
+              Hello! I'm <strong>SAQSHY AI</strong>, your indoor air quality assistant. 🌬️<br/><br/>
+              I have access to your current sensor readings:<br/>
+              • <strong>PM2.5:</strong> <span id="ai-ctx-pm25">5.2 µg/m³</span> — Good<br/>
+              • <strong>CO₂:</strong> <span id="ai-ctx-co2">450 ppm</span> — Excellent ventilation<br/>
+              • <strong>Temperature:</strong> <span id="ai-ctx-temp">22.1°C</span> — Comfortable<br/>
+              • <strong>Humidity:</strong> <span id="ai-ctx-hum">45%</span> — Optimal<br/><br/>
+              How can I help you understand your indoor air environment?
+            </div>
+            <div class="msg-meta">SAQSHY AI · just now</div>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="suggested-questions" id="suggested-questions">
+          <span class="suggested-q" onclick="sendSuggested(this)">Why is my PM2.5 high?</span>
+          <span class="suggested-q" onclick="sendSuggested(this)">Should I open the window?</span>
+          <span class="suggested-q" onclick="sendSuggested(this)">What is CO₂ vs CO?</span>
+          <span class="suggested-q" onclick="sendSuggested(this)">When to use an air purifier?</span>
+          <span class="suggested-q" onclick="sendSuggested(this)">Is my humidity OK?</span>
+          <span class="suggested-q" onclick="sendSuggested(this)">How to improve bedroom air?</span>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="chat-input" id="chat-input" placeholder="Ask about your indoor air quality..." rows="1" onkeydown="handleChatKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SOURCE INTELLIGENCE PAGE ===== -->
+    <div class="page" id="page-sources">
+      <div class="card mb-16">
+        <div class="card-header">
+          <div class="card-title">🔍 Source Intelligence Analysis</div>
+          <button class="btn btn-primary" onclick="runSourceAnalysis()">▶ Run Analysis</button>
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
+          SAQSHY AI analyzes sensor patterns, time of day, measurement correlations, and historical data to generate hypotheses about pollution sources.
+          <strong>These are hypotheses, not confirmed facts.</strong> Always combine with your own observations.
+        </div>
+      </div>
+
+      <div id="source-analysis-results">
+        <div class="grid-2 mb-16">
+          <div class="source-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:24px;">🏠</span>
+              <div>
+                <div style="font-weight:700;">Indoor Sources</div>
+                <div style="font-size:11px;color:var(--text-muted);">Activities and materials inside</div>
+              </div>
+            </div>
+            <div id="indoor-sources">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                  <span>🍳 Cooking activity</span>
+                  <span style="color:var(--text-muted);">Low probability</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:15%;background:var(--green);"></div></div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                  <span>🕯️ Candles / incense</span>
+                  <span style="color:var(--text-muted);">Low probability</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:10%;background:var(--green);"></div></div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                  <span>🧹 Cleaning products</span>
+                  <span style="color:var(--text-muted);">Very low</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:5%;background:var(--green);"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="source-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:24px;">🌍</span>
+              <div>
+                <div style="font-weight:700;">Outdoor Sources</div>
+                <div style="font-size:11px;color:var(--text-muted);">External environmental conditions</div>
+              </div>
+            </div>
+            <div id="outdoor-sources">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                  <span>🚗 Traffic pollution</span>
+                  <span style="color:var(--text-muted);">Low probability</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:12%;background:var(--blue);"></div></div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                  <span>🌪️ Regional dust / wind</span>
+                  <span style="color:var(--text-muted);">Unknown (no outdoor sensor)</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:0%;background:var(--text-muted);"></div></div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                  <span>🏭 Industrial / smoke</span>
+                  <span style="color:var(--text-muted);">Unknown</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:0%;background:var(--text-muted);"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="source-card mb-16" id="source-main-finding">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <span style="font-size:24px;">💡</span>
+            <div>
+              <div style="font-weight:700;font-size:15px;">Main Finding</div>
+              <span class="tag tag-green">High Confidence</span>
+            </div>
+          </div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text-secondary);" id="source-finding-text">
+            <strong style="color:var(--text-primary);">No significant pollution sources detected.</strong><br/><br/>
+            All indoor measurements are within acceptable ranges. PM2.5 at 5.2 µg/m³ is well below WHO guidelines.
+            CO₂ at 450 ppm indicates good air exchange with outdoor air (~420 ppm baseline).<br/><br/>
+            <strong>Supporting evidence:</strong>
+          </div>
+          <div id="source-evidence" style="margin-top:8px;">
+            <span class="evidence-tag">PM2.5 stable (5.2 µg/m³)</span>
+            <span class="evidence-tag">CO₂ near outdoor baseline</span>
+            <span class="evidence-tag">Good ventilation pattern</span>
+            <span class="evidence-tag">No sudden spikes</span>
+          </div>
+          <div id="source-alternative" style="margin-top:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:12px;color:var(--text-muted);">
+            <strong>What to check next:</strong> Continue monitoring. If values increase, note activities occurring at that time (cooking, cleaning, number of people in room).
+          </div>
+        </div>
+
+        <div class="source-card">
+          <div style="font-weight:700;margin-bottom:12px;">🏗️ Ventilation Assessment</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
+            CO₂ at <strong style="color:var(--cyan);" id="src-co2-val">450 ppm</strong> suggests good air exchange.
+            Outdoor CO₂ is approximately 420 ppm globally. The difference of ~30 ppm indicates minimal accumulation from occupant breathing.<br/><br/>
+            <span style="color:var(--green);">✅ Ventilation appears adequate for current occupancy.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EQUIPMENT PAGE ===== -->
+    <div class="page" id="page-equipment">
+      <div class="card mb-24" style="background:linear-gradient(135deg,rgba(0,102,255,0.08),rgba(0,212,255,0.05));">
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
+          🤖 <strong>AI Equipment Advisor:</strong> Based on current readings, recommendations for each device are shown below.
+          In the MVP, all controls are <span class="tag tag-yellow">Simulated</span> — real device control will be added after manufacturer API verification and safety review.
+        </div>
+      </div>
+
+      <div class="grid-3" id="equipment-grid">
+        <div class="device-card">
+          <div class="device-icon" style="background:var(--cyan-dim);">💨</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Air Purifier</div>
+            <div style="font-size:12px;color:var(--text-muted);">HEPA + Carbon Filter</div>
+          </div>
+          <div class="device-status-badge device-standby">⏸ Standby</div>
+          <div class="device-rec" id="purifier-rec">
+            PM2.5 is currently 5.2 µg/m³ — within good range. Air purifier is not urgently needed. Consider using if you're cooking or have guests.
+          </div>
+          <button class="device-control-btn" onclick="simulateDevice(this,'purifier')">▶ Simulate ON</button>
+        </div>
+
+        <div class="device-card">
+          <div class="device-icon" style="background:var(--blue-dim);">💦</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Humidifier</div>
+            <div style="font-size:12px;color:var(--text-muted);">Ultrasonic · 300ml/h</div>
+          </div>
+          <div class="device-status-badge device-standby">⏸ Standby</div>
+          <div class="device-rec" id="humidifier-rec">
+            Humidity is 45% — in the optimal range (40–60%). Humidifier is not needed at this time.
+          </div>
+          <button class="device-control-btn" onclick="simulateDevice(this,'humidifier')">▶ Simulate ON</button>
+        </div>
+
+        <div class="device-card">
+          <div class="device-icon" style="background:var(--purple-dim);">🌡️</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Dehumidifier</div>
+            <div style="font-size:12px;color:var(--text-muted);">Refrigerant · 20L/day</div>
+          </div>
+          <div class="device-status-badge device-standby">⏸ Standby</div>
+          <div class="device-rec" id="dehumidifier-rec">
+            Humidity is 45% — well below the concern threshold (65%+). Dehumidifier is not needed.
+          </div>
+          <button class="device-control-btn" onclick="simulateDevice(this,'dehumidifier')">▶ Simulate ON</button>
+        </div>
+
+        <div class="device-card">
+          <div class="device-icon" style="background:var(--green-dim);">🌬️</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Ventilation System</div>
+            <div style="font-size:12px;color:var(--text-muted);">HRV · Heat Recovery</div>
+          </div>
+          <div class="device-status-badge device-online">● Active</div>
+          <div class="device-rec" id="ventilation-rec">
+            CO₂ at 450 ppm — excellent. Ventilation is working well. Continue current operation mode.
+          </div>
+          <button class="device-control-btn" onclick="simulateDevice(this,'ventilation')">⚙ Adjust Speed</button>
+        </div>
+
+        <div class="device-card">
+          <div class="device-icon" style="background:rgba(249,115,22,0.15);">❄️</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Air Conditioner</div>
+            <div style="font-size:12px;color:var(--text-muted);">Inverter · 12000 BTU</div>
+          </div>
+          <div class="device-status-badge device-standby">⏸ Standby</div>
+          <div class="device-rec" id="ac-rec">
+            Temperature is 22.1°C — comfortable range. AC is not needed at this time.
+          </div>
+          <button class="device-control-btn" onclick="simulateDevice(this,'ac')">▶ Simulate ON</button>
+        </div>
+
+        <div class="device-card" style="border-style:dashed;opacity:0.6;cursor:default;">
+          <div class="device-icon" style="background:rgba(255,255,255,0.03);">➕</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">Add Device</div>
+            <div style="font-size:12px;color:var(--text-muted);">Connect new equipment</div>
+          </div>
+          <button class="device-control-btn">+ Add Equipment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== UV-C EDUCATION PAGE ===== -->
+    <div class="page" id="page-uvc">
+      <div class="uvc-card">
+        <div class="uvc-title">🔬 What is UV-C Light?</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.8;">
+          UV-C is ultraviolet light with wavelengths of 100–280 nanometers — shorter than visible light and invisible to the human eye.
+          At appropriate doses, UV-C radiation can damage the DNA/RNA of microorganisms, potentially inactivating bacteria, viruses, and mold spores.
+        </div>
+      </div>
+
+      <div class="grid-2 mb-16">
+        <div class="card">
+          <div class="card-title mb-8">✅ What UV-C May Do</div>
+          <ul style="font-size:13px;color:var(--text-secondary);line-height:1.9;padding-left:16px;">
+            <li>Inactivate certain bacteria and viruses <em>under suitable conditions</em></li>
+            <li>Reduce microbial load on surfaces (direct-irradiation systems)</li>
+            <li>Treat air passing through enclosed UV-C chambers</li>
+            <li>Complement other filtration methods</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title mb-8">❌ What UV-C Does NOT Do</div>
+          <ul style="font-size:13px;color:var(--text-secondary);line-height:1.9;padding-left:16px;">
+            <li><strong>Does not remove PM2.5 particles</strong> (need a particle filter for that)</li>
+            <li><strong>Does not remove CO₂ or gases</strong></li>
+            <li>Does not guarantee sterilization in all conditions</li>
+            <li>Effectiveness depends on distance, exposure time, and shielding</li>
+            <li>Does not replace HEPA filtration or ventilation</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card mb-16">
+        <div class="card-title mb-8">⚠️ Critical Safety Information</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.8;">
+          <strong style="color:var(--red);">Direct UV-C exposure is hazardous to humans and animals.</strong><br/>
+          Even brief exposure to germicidal UV-C can cause eye damage (photokeratitis) and skin burns. Only enclosed UV-C systems — where the lamp is fully shielded from direct human or pet exposure — are appropriate for home use.<br/><br/>
+          <strong>Enclosed systems</strong> treat air that passes through an internal chamber. The UV-C lamp never directly irradiates the room occupants or surfaces visible to them.
+        </div>
+        <div class="uvc-warning">
+          🚨 SAQSHY AIR will <strong>never</strong> automatically activate any UV-C device. UV-C equipment must only be operated according to the manufacturer's safety instructions. Never expose people or pets to direct germicidal UV-C light.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title mb-8">📊 UV-C vs Other Air Quality Solutions</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="text-align:left;padding:8px 12px;color:var(--text-muted);">Technology</th>
+                <th style="text-align:center;padding:8px;color:var(--text-muted);">Particles (PM2.5)</th>
+                <th style="text-align:center;padding:8px;color:var(--text-muted);">Microorganisms</th>
+                <th style="text-align:center;padding:8px;color:var(--text-muted);">Gases / VOCs</th>
+                <th style="text-align:center;padding:8px;color:var(--text-muted);">CO₂</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                <td style="padding:8px 12px;font-weight:600;">HEPA Filter</td>
+                <td style="text-align:center;color:var(--green);">✅ Yes</td>
+                <td style="text-align:center;color:var(--green);">Partial</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                <td style="padding:8px 12px;font-weight:600;">Activated Carbon</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+                <td style="text-align:center;color:var(--green);">✅ Yes</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                <td style="padding:8px 12px;font-weight:600;">UV-C (enclosed)</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+                <td style="text-align:center;color:var(--green);">✅ Potential</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+                <td style="text-align:center;color:var(--red);">❌ No</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px;font-weight:600;">Ventilation</td>
+                <td style="text-align:center;color:var(--yellow);">Partial</td>
+                <td style="text-align:center;color:var(--yellow);">Partial</td>
+                <td style="text-align:center;color:var(--yellow);">Partial</td>
+                <td style="text-align:center;color:var(--green);">✅ Yes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REPORTS PAGE ===== -->
+    <div class="page" id="page-reports">
+      <div class="grid-3 mb-24">
+        <div class="report-card">
+          <div style="font-weight:700;font-size:15px;margin-bottom:16px;">📅 Today's Summary</div>
+          <div class="report-stat"><span class="report-stat-label">Avg PM2.5</span><span class="report-stat-val text-green" id="rep-avg-pm25">5.8 µg/m³</span></div>
+          <div class="report-stat"><span class="report-stat-label">Peak PM2.5</span><span class="report-stat-val text-yellow" id="rep-peak-pm25">12.4 µg/m³</span></div>
+          <div class="report-stat"><span class="report-stat-label">Avg CO₂</span><span class="report-stat-val text-green" id="rep-avg-co2">490 ppm</span></div>
+          <div class="report-stat"><span class="report-stat-label">Peak CO₂</span><span class="report-stat-val text-yellow" id="rep-peak-co2">720 ppm</span></div>
+          <div class="report-stat"><span class="report-stat-label">Avg Humidity</span><span class="report-stat-val text-green" id="rep-avg-hum">46%</span></div>
+          <div class="report-stat"><span class="report-stat-label">Avg Temp</span><span class="report-stat-val" id="rep-avg-temp">21.9°C</span></div>
+          <div class="report-stat"><span class="report-stat-label">Time in Good AQI</span><span class="report-stat-val text-green">18.5h (77%)</span></div>
+        </div>
+        <div class="report-card">
+          <div style="font-weight:700;font-size:15px;margin-bottom:16px;">📊 This Week</div>
+          <div class="report-stat"><span class="report-stat-label">Days with Good Air</span><span class="report-stat-val text-green">5 of 7</span></div>
+          <div class="report-stat"><span class="report-stat-label">Days with Poor Air</span><span class="report-stat-val text-yellow">2 of 7</span></div>
+          <div class="report-stat"><span class="report-stat-label">Highest PM2.5</span><span class="report-stat-val text-orange">48.2 µg/m³</span></div>
+          <div class="report-stat"><span class="report-stat-label">Highest CO₂</span><span class="report-stat-val text-yellow">1,340 ppm</span></div>
+          <div class="report-stat"><span class="report-stat-label">AI Recommendations</span><span class="report-stat-val">12</span></div>
+          <div class="report-stat"><span class="report-stat-label">Alerts generated</span><span class="report-stat-val text-yellow">4</span></div>
+        </div>
+        <div class="report-card">
+          <div style="font-weight:700;font-size:15px;margin-bottom:16px;">🏆 Improvement Tracking</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:12px;">
+            After using the air purifier during cooking (Tuesday), PM2.5 peak reduced from <strong style="color:var(--orange);">78 µg/m³</strong> to <strong style="color:var(--green);">22 µg/m³</strong>.
+          </div>
+          <div class="progress-bar mb-8">
+            <div class="progress-fill" style="width:72%;background:linear-gradient(90deg,var(--green),var(--cyan));"></div>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">72% improvement in PM2.5 peak with purifier use</div>
+          <hr/>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">
+            Opening windows at <strong>11am–1pm</strong> reduced CO₂ from 1,340 ppm to <strong style="color:var(--green);">480 ppm</strong> in 20 minutes.
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-24">
+        <div class="card-header">
+          <div class="card-title">7-Day PM2.5 Trend</div>
+          <button class="btn btn-ghost" onclick="exportReport()">📄 Export Report</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="weekly-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">AI Recommendations History</div>
+        </div>
+        <div id="rec-history">
+          <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="tag tag-yellow">Moderate</span>
+              <span style="font-size:11px;color:var(--text-muted);">Today, 12:34</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;">PM2.5 spike during cooking detected</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">Consider using an air purifier with HEPA filter during cooking activities.</div>
+          </div>
+          <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="tag tag-blue">Info</span>
+              <span style="font-size:11px;color:var(--text-muted);">Yesterday, 20:15</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;">CO₂ elevated in bedroom</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">CO₂ reached 1,180 ppm during the evening. Consider opening a window for 10–15 minutes before sleep.</div>
+          </div>
+          <div style="padding:12px 0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="tag tag-green">Good</span>
+              <span style="font-size:11px;color:var(--text-muted);">2 days ago, 09:00</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;">Morning air quality excellent</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">All measurements within optimal ranges. Great air quality day.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS PAGE ===== -->
+    <div class="page" id="page-settings">
+      <div class="settings-section">
+        <div class="settings-title">🤖 AI Configuration</div>
+        <div class="settings-row">
+          <div class="settings-row-label">
+            Anthropic API Key
+            <small>Used for Claude AI assistant. Leave empty for rule-based fallback.</small>
+          </div>
+          <input class="settings-input" type="password" placeholder="sk-ant-..." id="api-key-input" />
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">
+            AI Model
+            <small>claude-3-5-haiku is fast and cost-effective for this use case</small>
+          </div>
+          <select class="settings-input" style="font-family:inherit;font-size:12px;">
+            <option>claude-3-5-haiku-20241022</option>
+            <option>claude-3-5-sonnet-20241022</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">
+            Backend URL
+            <small>FastAPI server address</small>
+          </div>
+          <input class="settings-input" type="text" value="http://localhost:8000" id="backend-url" />
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+          <span id="settings-saved" style="font-size:12px;color:var(--green);margin-left:12px;display:none;">✅ Saved</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">🏠 Rooms & Sensors</div>
+        <div class="settings-row">
+          <div class="settings-row-label">Living Room <small>SensorNode-01 · Simulated</small></div>
+          <span class="tag tag-yellow">DEMO</span>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">Bedroom <small>SensorNode-02 · Simulated</small></div>
+          <span class="tag tag-yellow">DEMO</span>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">Kitchen <small>SensorNode-03 · Offline</small></div>
+          <span class="tag tag-red">OFFLINE</span>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">Children's Room <small>SensorNode-04 · Simulated</small></div>
+          <span class="tag tag-yellow">DEMO</span>
+        </div>
+        <button class="btn btn-ghost" style="margin-top:12px;" onclick="alert('Room management coming in next version')">+ Add Room</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">🔔 Alerts & Thresholds</div>
+        <div class="settings-row">
+          <div class="settings-row-label">PM2.5 Warning threshold <small>WHO 24h guideline: 15 µg/m³</small></div>
+          <input class="settings-input" type="number" value="35" style="width:100px;" />
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">CO₂ Warning threshold <small>ASHRAE recommendation: 1000 ppm</small></div>
+          <input class="settings-input" type="number" value="1000" style="width:100px;" />
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">Humidity — Low warning</div>
+          <input class="settings-input" type="number" value="30" style="width:100px;" />
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">Humidity — High warning</div>
+          <input class="settings-input" type="number" value="65" style="width:100px;" />
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">⚡ Hardware Integration</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px;">
+          Connect physical ESP32-based sensors via HTTP POST to the backend API.
+        </div>
+        <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">IoT Sensor POST Endpoint:</div>
+          <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);">POST http://localhost:8000/api/sensors/reading</code>
+          <pre style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary);margin-top:12px;line-height:1.6;">{
+  "sensor_id": "node-01",
+  "room": "living_room",
+  "pm25": 12.5,
+  "co2": 650,
+  "temperature": 22.3,
+  "humidity": 48,
+  "timestamp": "2026-11-12T10:30:00Z"
+}</pre>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-content -->
+</div><!-- /main -->
+
+<script>
+// ===== STATE =====
+const state = {
+  demo: true,
+  scenario: 'normal',
+  scenarioStep: 0,
+  scenarioMax: 60,
+  scenarioInterval: null,
+  currentReadings: { pm25: 5.2, co2: 450, temp: 22.1, hum: 45 },
+  history: { pm25: [], co2: [], temp: [], hum: [], labels: [] },
+  weeklyData: [],
+  apiKey: localStorage.getItem('saqshy_api_key') || '',
+  backendUrl: localStorage.getItem('saqshy_backend') || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? window.location.origin : 'http://localhost:8000'),
+  conversationHistory: [],
+  charts: {},
+  activePage: 'overview',
+  rooms: {
+    living: { pm25: 5.2, co2: 450, temp: 22.1, hum: 45 },
+    bedroom: { pm25: 3.8, co2: 520, temp: 21.5, hum: 48 },
+    kitchen: { pm25: 8.1, co2: 480, temp: 23.2, hum: 42 },
+    children: { pm25: 4.2, co2: 410, temp: 22.0, hum: 50 }
+  }
+};
+
+// ===== SCENARIOS =====
+const SCENARIOS = {
+  normal: {
+    name: '🌿 Normal Conditions',
+    desc: 'All measurements within healthy ranges',
+    base: { pm25: 5, co2: 450, temp: 22, hum: 45 },
+    drift: { pm25: [3, 10], co2: [420, 520], temp: [21, 23], hum: [42, 50] }
+  },
+  cooking: {
+    name: '🍳 Cooking Event',
+    desc: 'PM2.5 rising rapidly — cooking in progress',
+    base: { pm25: 80, co2: 500, temp: 24, hum: 50 },
+    drift: { pm25: [60, 150], co2: [480, 560], temp: [23, 26], hum: [45, 60] }
+  },
+  outdoor: {
+    name: '🌫️ Outdoor Pollution',
+    desc: 'Outdoor particulates infiltrating indoors',
+    base: { pm25: 55, co2: 460, temp: 22, hum: 55 },
+    drift: { pm25: [35, 85], co2: [440, 490], temp: [21, 23], hum: [50, 65] }
+  },
+  humidity: {
+    name: '💧 Low Humidity',
+    desc: 'Relative humidity persistently low',
+    base: { pm25: 6, co2: 480, temp: 22, hum: 22 },
+    drift: { pm25: [4, 10], co2: [450, 530], temp: [21, 24], hum: [18, 28] }
+  },
+  ventilation: {
+    name: '🌬️ Poor Ventilation',
+    desc: 'CO₂ accumulating — insufficient air exchange',
+    base: { pm25: 7, co2: 1600, temp: 23, hum: 55 },
+    drift: { pm25: [5, 12], co2: [1200, 2200], temp: [22, 25], hum: [50, 62] }
+  },
+  improvement: {
+    name: '✅ Air Improvement',
+    desc: 'Readings recovering after corrective action',
+    base: { pm25: 8, co2: 480, temp: 22, hum: 44 },
+    drift: { pm25: [5, 12], co2: [440, 510], temp: [21, 23], hum: [42, 50] }
+  }
+};
+
+// ===== THRESHOLDS =====
+function getPM25Status(v) {
+  if (v < 12) return { cls: 'status-good', label: 'Good' };
+  if (v < 35) return { cls: 'status-moderate', label: 'Moderate' };
+  if (v < 75) return { cls: 'status-poor', label: 'Unhealthy (Sensitive)' };
+  return { cls: 'status-danger', label: 'Unhealthy' };
+}
+function getCO2Status(v) {
+  if (v < 800) return { cls: 'status-good', label: 'Good' };
+  if (v < 1000) return { cls: 'status-moderate', label: 'Acceptable' };
+  if (v < 1500) return { cls: 'status-poor', label: 'Poor ventilation' };
+  return { cls: 'status-danger', label: 'Very Poor' };
+}
+function getTempStatus(v) {
+  if (v < 16) return { cls: 'status-poor', label: 'Too Cold' };
+  if (v < 18) return { cls: 'status-moderate', label: 'Cool' };
+  if (v <= 26) return { cls: 'status-good', label: 'Comfortable' };
+  if (v <= 30) return { cls: 'status-moderate', label: 'Warm' };
+  return { cls: 'status-poor', label: 'Too Warm' };
+}
+function getHumStatus(v) {
+  if (v < 25) return { cls: 'status-poor', label: 'Very Dry' };
+  if (v < 35) return { cls: 'status-moderate', label: 'Dry' };
+  if (v <= 60) return { cls: 'status-good', label: 'Optimal' };
+  if (v <= 70) return { cls: 'status-moderate', label: 'High' };
+  return { cls: 'status-poor', label: 'Very High' };
+}
+
+function getAQI(readings) {
+  const pm = readings.pm25;
+  const co2 = readings.co2;
+  const hum = readings.hum;
+  let score = 100;
+  if (pm > 12) score -= Math.min(40, (pm - 12) * 1.5);
+  if (co2 > 800) score -= Math.min(30, (co2 - 800) * 0.05);
+  if (hum < 30) score -= 15;
+  if (hum > 65) score -= 10;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function getAQILabel(score) {
+  if (score >= 80) return { label: 'Excellent', color: 'var(--green)' };
+  if (score >= 60) return { label: 'Good', color: '#86efac' };
+  if (score >= 40) return { label: 'Moderate', color: 'var(--yellow)' };
+  if (score >= 20) return { label: 'Poor', color: 'var(--orange)' };
+  return { label: 'Very Poor', color: 'var(--red)' };
+}
+
+// ===== NOISE =====
+function noise(range) {
+  return range[0] + Math.random() * (range[1] - range[0]);
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ===== GENERATE CURRENT READING =====
+function generateReading() {
+  const sc = SCENARIOS[state.scenario];
+  const drift = sc.drift;
+  const base = sc.base;
+
+  const t = state.scenarioStep / state.scenarioMax;
+  let pm25, co2, temp, hum;
+
+  if (state.scenario === 'cooking') {
+    // Sharp spike then gradual decay
+    const peak = t < 0.4 ? lerp(5, 140, t / 0.4) : lerp(140, 20, (t - 0.4) / 0.6);
+    pm25 = peak + (Math.random() - 0.5) * 10;
+  } else if (state.scenario === 'ventilation') {
+    const co2Rise = lerp(500, 2100, t);
+    co2 = co2Rise + (Math.random() - 0.5) * 80;
+    pm25 = noise(drift.pm25);
+  } else if (state.scenario === 'improvement') {
+    const startPm = 55, startCo2 = 1500;
+    pm25 = lerp(startPm, 8, t) + (Math.random() - 0.5) * 5;
+    co2 = lerp(startCo2, 460, t) + (Math.random() - 0.5) * 30;
+  } else {
+    pm25 = noise(drift.pm25);
+  }
+
+  if (!co2) co2 = noise(drift.co2);
+  if (!pm25) pm25 = noise(drift.pm25);
+  temp = noise(drift.temp);
+  hum = noise(drift.hum);
+
+  return {
+    pm25: Math.max(0, parseFloat(pm25.toFixed(1))),
+    co2: Math.max(400, Math.round(co2)),
+    temp: parseFloat(temp.toFixed(1)),
+    hum: Math.max(10, Math.round(hum))
+  };
+}
+
+// ===== GENERATE HISTORY =====
+function generateHistory(hours = 24) {
+  const labels = [], pm25Arr = [], co2Arr = [], tempArr = [], humArr = [];
+  const now = new Date();
+  const sc = SCENARIOS[state.scenario];
+
+  for (let i = hours; i >= 0; i--) {
+    const t = new Date(now - i * 3600000);
+    labels.push(t.getHours() + ':00');
+    const factor = i / hours;
+    pm25Arr.push(parseFloat((noise(sc.drift.pm25) * (1 - factor * 0.3)).toFixed(1)));
+    co2Arr.push(Math.round(noise(sc.drift.co2)));
+    tempArr.push(parseFloat(noise(sc.drift.temp).toFixed(1)));
+    humArr.push(Math.round(noise(sc.drift.hum)));
+  }
+  return { labels, pm25: pm25Arr, co2: co2Arr, temp: tempArr, hum: humArr };
+}
+
+// ===== CHART CONFIG =====
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: {
+    backgroundColor: 'rgba(10,22,40,0.95)',
+    borderColor: 'rgba(0,212,255,0.3)',
+    borderWidth: 1,
+    titleColor: '#8ba5c8',
+    bodyColor: '#f0f6ff',
+    padding: 10,
+    cornerRadius: 8
+  }},
+  scales: {
+    x: {
+      grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+      ticks: { color: '#4a6080', font: { size: 10 } }
+    },
+    y: {
+      grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+      ticks: { color: '#4a6080', font: { size: 10 } }
+    }
+  },
+  animation: { duration: 400 }
+};
+
+function makeGradient(ctx, color1, color2) {
+  const g = ctx.createLinearGradient(0, 0, 0, 200);
+  g.addColorStop(0, color1);
+  g.addColorStop(1, color2);
+  return g;
+}
+
+// ===== INIT CHARTS =====
+function initCharts() {
+  const h = generateHistory(24);
+  state.history = h;
+
+  // Sparklines
+  ['pm25','co2','temp','hum'].forEach(key => {
+    const el = document.getElementById(`spark-${key}`);
+    if (!el) return;
+    const ctx = el.getContext('2d');
+    const colors = { pm25: '#00d4ff', co2: '#0066ff', temp: '#f97316', hum: '#8b5cf6' };
+    const data = h[key].slice(-12);
+    el.style.height = '50px';
+    el.height = 50;
+    if (state.charts[`spark-${key}`]) state.charts[`spark-${key}`].destroy();
+    state.charts[`spark-${key}`] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: h.labels.slice(-12),
+        datasets: [{ data, borderColor: colors[key], borderWidth: 2, fill: true,
+          backgroundColor: `${colors[key]}15`, tension: 0.4, pointRadius: 0 }]
+      },
+      options: { ...CHART_DEFAULTS, scales: {
+        x: { display: false }, y: { display: false }
+      }, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+    });
+  });
+
+  // History chart
+  const hCtx = document.getElementById('history-chart')?.getContext('2d');
+  if (hCtx) {
+    const pm25Grad = makeGradient(hCtx, 'rgba(0,212,255,0.3)', 'rgba(0,212,255,0.0)');
+    if (state.charts.history) state.charts.history.destroy();
+    state.charts.history = new Chart(hCtx, {
+      type: 'line',
+      data: {
+        labels: h.labels,
+        datasets: [
+          { label: 'PM2.5 (µg/m³)', data: h.pm25, borderColor: '#00d4ff', backgroundColor: pm25Grad,
+            borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2, yAxisID: 'y' },
+          { label: 'CO₂ (ppm)', data: h.co2, borderColor: '#0066ff', backgroundColor: 'rgba(0,102,255,0.0)',
+            borderWidth: 2, fill: false, tension: 0.4, pointRadius: 2, yAxisID: 'y1', borderDash: [4,2] }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: { ...CHART_DEFAULTS.plugins, legend: { display: true, labels: {
+          color: '#8ba5c8', font: { size: 11 }, boxWidth: 20
+        }}},
+        scales: {
+          x: CHART_DEFAULTS.scales.x,
+          y: { ...CHART_DEFAULTS.scales.y, position: 'left', title: { display: true, text: 'PM2.5 µg/m³', color: '#00d4ff', font: { size: 10 }}},
+          y1: { ...CHART_DEFAULTS.scales.y, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'CO₂ ppm', color: '#0066ff', font: { size: 10 }}}
+        }
+      }
+    });
+  }
+
+  // Temp + Humidity chart
+  const thCtx = document.getElementById('temp-hum-chart')?.getContext('2d');
+  if (thCtx) {
+    if (state.charts.tempHum) state.charts.tempHum.destroy();
+    state.charts.tempHum = new Chart(thCtx, {
+      type: 'line',
+      data: {
+        labels: h.labels,
+        datasets: [
+          { label: 'Temp (°C)', data: h.temp, borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)',
+            borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, yAxisID: 'y' },
+          { label: 'Humidity (%)', data: h.hum, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)',
+            borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: { ...CHART_DEFAULTS.plugins, legend: { display: true, labels: { color: '#8ba5c8', font: { size: 11 }, boxWidth: 20 }}},
+        scales: {
+          x: CHART_DEFAULTS.scales.x,
+          y: { ...CHART_DEFAULTS.scales.y, position: 'left' },
+          y1: { ...CHART_DEFAULTS.scales.y, position: 'right', grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  }
+
+  // Outdoor compare chart
+  const ocCtx = document.getElementById('outdoor-compare-chart')?.getContext('2d');
+  if (ocCtx) {
+    const indoorData = h.pm25.slice(-8);
+    const outdoorData = indoorData.map(v => v + noise([5, 25]));
+    if (state.charts.outdoorCompare) state.charts.outdoorCompare.destroy();
+    state.charts.outdoorCompare = new Chart(ocCtx, {
+      type: 'bar',
+      data: {
+        labels: h.labels.slice(-8),
+        datasets: [
+          { label: 'Indoor PM2.5', data: indoorData, backgroundColor: 'rgba(0,212,255,0.6)', borderRadius: 4 },
+          { label: 'Outdoor PM2.5', data: outdoorData, backgroundColor: 'rgba(249,115,22,0.6)', borderRadius: 4 }
+        ]
+      },
+      options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false }}}
+    });
+  }
+
+  // Monitoring charts
+  const monPmCtx = document.getElementById('mon-pm25-chart')?.getContext('2d');
+  if (monPmCtx) {
+    if (state.charts.monPm25) state.charts.monPm25.destroy();
+    state.charts.monPm25 = new Chart(monPmCtx, {
+      type: 'line',
+      data: { labels: h.labels, datasets: [{ label: 'PM2.5', data: h.pm25, borderColor: '#00d4ff',
+        backgroundColor: 'rgba(0,212,255,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2 }]},
+      options: { ...CHART_DEFAULTS }
+    });
+  }
+
+  const monCo2Ctx = document.getElementById('mon-co2-chart')?.getContext('2d');
+  if (monCo2Ctx) {
+    if (state.charts.monCo2) state.charts.monCo2.destroy();
+    state.charts.monCo2 = new Chart(monCo2Ctx, {
+      type: 'line',
+      data: { labels: h.labels, datasets: [{ label: 'CO₂', data: h.co2, borderColor: '#0066ff',
+        backgroundColor: 'rgba(0,102,255,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2 }]},
+      options: { ...CHART_DEFAULTS }
+    });
+  }
+
+  // Weekly chart
+  const weekCtx = document.getElementById('weekly-chart')?.getContext('2d');
+  if (weekCtx) {
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const weekData = days.map(() => parseFloat(noise([4, 50]).toFixed(1)));
+    if (state.charts.weekly) state.charts.weekly.destroy();
+    state.charts.weekly = new Chart(weekCtx, {
+      type: 'bar',
+      data: {
+        labels: days,
+        datasets: [{
+          label: 'Avg PM2.5 (µg/m³)',
+          data: weekData,
+          backgroundColor: weekData.map(v => v < 12 ? 'rgba(16,217,160,0.7)' : v < 35 ? 'rgba(245,158,11,0.7)' : 'rgba(239,68,68,0.7)'),
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: { ...CHART_DEFAULTS }
+    });
+  }
+
+  // AQI gauge
+  drawAQIGauge();
+}
+
+function drawAQIGauge() {
+  const canvas = document.getElementById('aqi-gauge-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const score = getAQI(state.currentReadings);
+  const { label, color } = getAQILabel(score);
+
+  ctx.clearRect(0, 0, 160, 110);
+
+  // Background arc
+  ctx.beginPath();
+  ctx.arc(80, 90, 65, Math.PI, 0, false);
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Score arc
+  const angle = Math.PI + (Math.PI * score / 100);
+  ctx.beginPath();
+  ctx.arc(80, 90, 65, Math.PI, angle, false);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  document.getElementById('aqi-score').textContent = score;
+  document.getElementById('aqi-score').style.color = color;
+  document.getElementById('aqi-desc').textContent = label;
+  document.getElementById('aqi-desc').style.color = color;
+
+  const explains = {
+    'Excellent': 'Air quality is excellent. Ideal conditions for all activities.',
+    'Good': 'Air quality is satisfactory. No significant health concerns.',
+    'Moderate': 'Air quality is acceptable. Some concern for sensitive individuals.',
+    'Poor': 'Air quality is poor. Consider reducing prolonged indoor activities.',
+    'Very Poor': 'Air quality is very poor. Immediate action recommended.'
+  };
+  document.getElementById('aqi-explain').textContent = explains[label] || '';
+}
+
+// ===== UPDATE UI =====
+function updateUI(readings) {
+  state.currentReadings = readings;
+  const { pm25, co2, temp, hum } = readings;
+
+  // Overview metrics
+  setMetric('pm25', pm25.toFixed(1), 'µg/m³', getPM25Status(pm25));
+  setMetric('co2', co2, 'ppm', getCO2Status(co2));
+  setMetric('temp', temp.toFixed(1), '°C', getTempStatus(temp));
+  setMetric('hum', hum, '%', getHumStatus(hum));
+
+  // Monitoring metrics
+  setMonMetric('pm25', pm25.toFixed(1) + ' µg/m³', getPM25Status(pm25), 'WHO 24h guideline: 15 µg/m³');
+  setMonMetric('co2', co2 + ' ppm', getCO2Status(co2), 'Normal outdoor: ~420 ppm');
+  setMonMetric('temp', temp.toFixed(1) + '°C', getTempStatus(temp), 'Comfortable range: 18–26°C');
+  setMonMetric('hum', hum + '%', getHumStatus(hum), 'Optimal range: 40–60%');
+
+  // AI context display
+  setEl('ai-ctx-pm25', `${pm25.toFixed(1)} µg/m³`);
+  setEl('ai-ctx-co2', `${co2} ppm`);
+  setEl('ai-ctx-temp', `${temp.toFixed(1)}°C`);
+  setEl('ai-ctx-hum', `${hum}%`);
+
+  // Source intelligence
+  setEl('src-co2-val', `${co2} ppm`);
+
+  // Alerts
+  updateAlerts(readings);
+  updateEquipmentRecs(readings);
+  drawAQIGauge();
+  updateAIRec(readings);
+
+  // Timestamp
+  setEl('last-update', 'Updated ' + new Date().toLocaleTimeString());
+}
+
+function setEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function setMetric(key, value, unit, status) {
+  const valEl = document.getElementById(`val-${key}`);
+  const statusEl = document.getElementById(`status-${key}`);
+  if (valEl) valEl.innerHTML = `${value}<span class="metric-unit">${unit}</span>`;
+  if (statusEl) {
+    statusEl.className = `metric-status ${status.cls}`;
+    statusEl.textContent = status.label;
+  }
+}
+
+function setMonMetric(key, value, status, hint) {
+  const valEl = document.getElementById(`mon-${key}`);
+  const statusEl = document.getElementById(`mon-status-${key}`);
+  const trendEl = document.getElementById(`mon-trend-${key}`);
+  if (valEl) valEl.innerHTML = value;
+  if (statusEl) {
+    statusEl.className = `metric-status ${status.cls}`;
+    statusEl.textContent = `${status.label} — ${hint}`;
+  }
+  if (trendEl) trendEl.textContent = '→ Updating...';
+}
+
+function updateAlerts(readings) {
+  const { pm25, co2, temp, hum } = readings;
+  const alerts = [];
+
+  if (pm25 >= 75) alerts.push({ cls: 'alert-danger', icon: '🚨', title: `PM2.5 Unhealthy: ${pm25.toFixed(1)} µg/m³`, desc: 'Particulate levels are high. Consider air purifier, reduce indoor sources, check outdoor conditions.' });
+  else if (pm25 >= 35) alerts.push({ cls: 'alert-poor', icon: '⚠️', title: `PM2.5 Elevated: ${pm25.toFixed(1)} µg/m³`, desc: 'Above WHO interim target. Check for indoor sources (cooking, candles) or outdoor infiltration.' });
+
+  if (co2 >= 1500) alerts.push({ cls: 'alert-danger', icon: '🌬️', title: `CO₂ Very High: ${co2} ppm`, desc: 'Seriously inadequate ventilation. Open windows or activate ventilation immediately.' });
+  else if (co2 >= 1000) alerts.push({ cls: 'alert-poor', icon: '☁️', title: `CO₂ Elevated: ${co2} ppm`, desc: 'Ventilation may be insufficient. Consider opening windows if outdoor conditions allow.' });
+
+  if (hum < 25) alerts.push({ cls: 'alert-poor', icon: '🏜️', title: `Very Low Humidity: ${hum}%`, desc: 'Air is very dry. This may cause discomfort and affect respiratory health. Consider a humidifier.' });
+  else if (hum > 70) alerts.push({ cls: 'alert-poor', icon: '💧', title: `High Humidity: ${hum}%`, desc: 'Elevated humidity may promote mold growth. Consider dehumidification and improving ventilation.' });
+
+  if (alerts.length === 0) alerts.push({ cls: 'alert-good', icon: '✅', title: 'All measurements within acceptable range', desc: 'Indoor air quality is currently good. Continue monitoring for changes.' });
+
+  const container = document.getElementById('alerts-container');
+  if (container) {
+    container.innerHTML = alerts.map(a => `
+      <div class="alert-card ${a.cls}" style="margin-bottom:8px;">
+        <div class="alert-icon">${a.icon}</div>
+        <div>
+          <div class="alert-title">${a.title}</div>
+          <div class="alert-desc">${a.desc}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function updateEquipmentRecs(readings) {
+  const { pm25, co2, temp, hum } = readings;
+
+  const purifier = pm25 >= 35
+    ? `⚠️ PM2.5 is ${pm25.toFixed(1)} µg/m³ — elevated. Using an air purifier with a HEPA filter is recommended to reduce particulate levels.`
+    : `PM2.5 is ${pm25.toFixed(1)} µg/m³ — within good range. Air purifier can be used proactively during cooking or when guests are present.`;
+
+  const humifierRec = hum < 30
+    ? `⚠️ Humidity is ${hum}% — below comfortable range. A humidifier may help improve comfort and reduce static electricity.`
+    : hum > 60
+    ? `Humidity is ${hum}% — already elevated. Humidifier is not recommended.`
+    : `Humidity is ${hum}% — in optimal range (40–60%). Humidifier is not needed.`;
+
+  const dehumRec = hum > 65
+    ? `⚠️ Humidity is ${hum}% — elevated. A dehumidifier may help prevent mold and improve comfort.`
+    : `Humidity is ${hum}% — no need for dehumidification.`;
+
+  const ventRec = co2 > 1000
+    ? `⚠️ CO₂ is ${co2} ppm — poor ventilation. Increase air exchange rate. If outdoor conditions are suitable, increase ventilation speed.`
+    : `CO₂ at ${co2} ppm — good. Ventilation is working well.`;
+
+  const acRec = temp > 26
+    ? `Temperature is ${temp.toFixed(1)}°C — warm. Air conditioning may improve comfort.`
+    : temp < 18
+    ? `Temperature is ${temp.toFixed(1)}°C — cool. Heating may improve comfort.`
+    : `Temperature is ${temp.toFixed(1)}°C — comfortable range. AC is not needed.`;
+
+  setEl('purifier-rec', purifier);
+  setEl('humidifier-rec', humifierRec);
+  setEl('dehumidifier-rec', dehumRec);
+  setEl('ventilation-rec', ventRec);
+  setEl('ac-rec', acRec);
+}
+
+function updateAIRec(readings) {
+  const { pm25, co2, temp, hum } = readings;
+  let rec = '';
+
+  if (pm25 >= 75) {
+    rec = `🚨 <strong style="color:var(--red);">PM2.5 is very high (${pm25.toFixed(1)} µg/m³).</strong><br/>
+    Possible sources: cooking, candles, cleaning, outdoor infiltration.<br/>
+    Recommended: use HEPA air purifier, identify and reduce source, check if outdoor PM2.5 is also elevated.<br/>
+    <span style="font-size:11px;color:var(--text-muted);">This is a recommendation, not a medical instruction.</span>`;
+  } else if (pm25 >= 35) {
+    rec = `⚠️ <strong style="color:var(--orange);">PM2.5 is elevated (${pm25.toFixed(1)} µg/m³).</strong><br/>
+    Above WHO 24h interim target. Check for cooking activity, candles, or outdoor pollution infiltration.<br/>
+    Consider an air purifier with HEPA filter.`;
+  } else if (co2 >= 1500) {
+    rec = `🌬️ <strong style="color:var(--red);">CO₂ is very high (${co2} ppm).</strong><br/>
+    Inadequate ventilation detected. Open windows or increase mechanical ventilation.<br/>
+    High CO₂ may cause drowsiness and reduced concentration.`;
+  } else if (co2 >= 1000) {
+    rec = `☁️ <strong style="color:var(--yellow);">CO₂ elevated (${co2} ppm).</strong><br/>
+    Ventilation may be insufficient for current occupancy. Consider opening windows briefly.<br/>
+    <span style="font-size:11px;color:var(--text-muted);">CO₂ ≠ CO. CO₂ is a ventilation indicator. CO is a poisonous gas measured by a separate sensor.</span>`;
+  } else if (hum < 30) {
+    rec = `🏜️ <strong style="color:var(--orange);">Humidity is very low (${hum}%).</strong><br/>
+    Very dry air may cause discomfort. Consider a properly maintained humidifier.<br/>
+    Target range: 40–60% relative humidity.`;
+  } else if (hum > 65) {
+    rec = `💧 <strong style="color:var(--yellow);">Humidity is high (${hum}%).</strong><br/>
+    Above 65% increases risk of mold and dust mites. Check for moisture sources, improve ventilation.<br/>
+    Consider a dehumidifier if the problem persists.`;
+  } else {
+    rec = `🌿 <strong style="color:var(--green);">Air quality is good.</strong><br/>
+    PM2.5 (${pm25.toFixed(1)} µg/m³) is within acceptable range. CO₂ at ${co2} ppm indicates good ventilation.<br/>
+    Humidity of ${hum}% is in the optimal range (40–60%).<br/>
+    <span style="font-size:11px;color:var(--text-muted);">💡 Continue current ventilation habits. No action required.</span>`;
+  }
+
+  const el = document.getElementById('ai-rec-card');
+  if (el) el.innerHTML = rec;
+}
+
+// ===== NAVIGATION =====
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const pageEl = document.getElementById(`page-${page}`);
+  if (pageEl) pageEl.classList.add('active');
+
+  const navEl = document.getElementById(`nav-${page}`);
+  if (navEl) navEl.classList.add('active');
+
+  state.activePage = page;
+
+  const titles = {
+    overview: ['Overview', 'Real-time indoor environmental intelligence'],
+    monitoring: ['Air Monitoring', 'Detailed sensor readings and trends'],
+    ai: ['AI Assistant', 'Ask questions about your indoor air quality'],
+    sources: ['Source Intelligence', 'AI-powered pollution source analysis'],
+    equipment: ['Smart Equipment', 'Device management and recommendations'],
+    uvc: ['UV-C Education', 'Understanding ultraviolet germicidal technology'],
+    reports: ['History & Reports', 'Environmental trends and improvement tracking'],
+    settings: ['Settings', 'Configure sensors, AI, and alerts']
+  };
+
+  const [title, sub] = titles[page] || ['SAQSHY AIR', ''];
+  setEl('page-title', title);
+  setEl('page-sub', sub);
+
+  // Special handling for AI page layout
+  const aiPage = document.getElementById('page-ai');
+  if (page === 'ai') {
+    document.getElementById('page-content').style.padding = '0';
+    // Update AI context
+    const r = state.currentReadings;
+    setEl('ai-ctx-pm25', `${r.pm25.toFixed(1)} µg/m³`);
+    setEl('ai-ctx-co2', `${r.co2} ppm`);
+    setEl('ai-ctx-temp', `${r.temp.toFixed(1)}°C`);
+    setEl('ai-ctx-hum', `${r.hum}%`);
+  } else {
+    document.getElementById('page-content').style.padding = '24px 28px';
+  }
+}
+
+// ===== ROOM SELECTION =====
+function selectRoom(btn, roomKey) {
+  document.querySelectorAll('.room-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  const r = state.rooms[roomKey] || state.currentReadings;
+  setEl('mon-pm25', r.pm25.toFixed(1) + '<span class="metric-unit">µg/m³</span>');
+  setEl('mon-co2', r.co2 + '<span class="metric-unit">ppm</span>');
+  setEl('mon-temp', r.temp.toFixed(1) + '<span class="metric-unit">°C</span>');
+  setEl('mon-hum', r.hum + '<span class="metric-unit">%</span>');
+
+  // Regenerate monitoring charts for this room
+  const h = generateHistory(24);
+  if (state.charts.monPm25) {
+    state.charts.monPm25.data.datasets[0].data = h.pm25;
+    state.charts.monPm25.update();
+  }
+  if (state.charts.monCo2) {
+    state.charts.monCo2.data.datasets[0].data = h.co2;
+    state.charts.monCo2.update();
+  }
+}
+
+// ===== DEMO TOGGLE =====
+function toggleDemo() {
+  state.demo = !state.demo;
+  const sw = document.getElementById('demo-toggle-switch');
+  const banner = document.getElementById('demo-banner');
+  if (state.demo) {
+    sw.classList.add('on');
+    banner.classList.remove('hidden');
+    banner.style.display = 'flex';
+    setEl('live-label', 'DEMO');
+  } else {
+    sw.classList.remove('on');
+    banner.classList.add('hidden');
+    banner.style.display = 'none';
+    setEl('live-label', 'LIVE');
+    changeScenario('normal');
+  }
+}
+
+// ===== SCENARIO CHANGE =====
+function changeScenario(scenarioId) {
+  if (state.scenarioInterval) clearInterval(state.scenarioInterval);
+  state.scenario = scenarioId;
+  state.scenarioStep = 0;
+
+  const sc = SCENARIOS[scenarioId];
+  const banner = document.getElementById('scenario-banner');
+  const fill = document.getElementById('scenario-fill');
+  const pct = document.getElementById('scenario-pct');
+
+  if (scenarioId !== 'normal') {
+    banner.style.display = 'block';
+    setEl('scenario-name', sc.name);
+    setEl('scenario-step', sc.desc);
+    fill.style.width = '0%';
+    pct.textContent = '0%';
+
+    state.scenarioInterval = setInterval(() => {
+      state.scenarioStep = Math.min(state.scenarioStep + 1, state.scenarioMax);
+      const p = Math.round(state.scenarioStep / state.scenarioMax * 100);
+      fill.style.width = p + '%';
+      pct.textContent = p + '%';
+      if (state.scenarioStep >= state.scenarioMax) {
+        clearInterval(state.scenarioInterval);
+        setEl('scenario-step', 'Scenario complete — monitoring continued');
+      }
+      tick();
+    }, 1500);
+  } else {
+    banner.style.display = 'none';
+  }
+
+  initCharts();
+  tick();
+}
+
+// ===== TICK (live update) =====
+function tick() {
+  const readings = generateReading();
+  state.scenarioStep++;
+  updateUI(readings);
+
+  // Update sparklines
+  ['pm25','co2','temp','hum'].forEach(key => {
+    const chart = state.charts[`spark-${key}`];
+    if (chart) {
+      chart.data.datasets[0].data.push(readings[key]);
+      if (chart.data.datasets[0].data.length > 20) chart.data.datasets[0].data.shift();
+      chart.data.labels.push('');
+      if (chart.data.labels.length > 20) chart.data.labels.shift();
+      chart.update('none');
+    }
+  });
+
+  // Update history chart last point
+  if (state.charts.history) {
+    const ds = state.charts.history.data.datasets;
+    ds[0].data[ds[0].data.length - 1] = readings.pm25;
+    ds[1].data[ds[1].data.length - 1] = readings.co2;
+    state.charts.history.update('none');
+  }
+}
+
+// ===== REFRESH =====
+function refreshData() {
+  initCharts();
+  tick();
+}
+
+// ===== AI CHAT =====
+const AI_RESPONSES = {
+  'pm25': (r) => `PM2.5 stands for particulate matter with diameter ≤ 2.5 micrometers. Your current reading is **${r.pm25.toFixed(1)} µg/m³**.
+
+**${getPM25Status(r.pm25).label}** — ${r.pm25 < 12 ? 'Well below the WHO 24-hour guideline of 15 µg/m³.' : r.pm25 < 35 ? 'Above the WHO guideline but below the moderate threshold.' : 'Elevated. Consider reducing indoor sources.'}
+
+**Common indoor PM2.5 sources:** cooking (especially frying), candles, incense, smoking, cleaning activities, and outdoor infiltration through windows.
+
+**What PM2.5 sensors measure:** particle count/mass in a specific size range. They do NOT identify the chemical composition or source.`,
+
+  'window': (r) => `Whether to open the window depends on a comparison between indoor and outdoor conditions.
+
+**Current indoor readings:**
+• PM2.5: ${r.pm25.toFixed(1)} µg/m³
+• CO₂: ${r.co2} ppm
+• Humidity: ${r.hum}%
+
+**Opening windows is generally helpful when:**
+✅ Indoor CO₂ is elevated (>${'> '}800 ppm) and outdoor air quality is good
+✅ Indoor humidity is high and outdoor humidity is lower
+✅ PM2.5 is caused by an indoor source and outdoor PM2.5 is lower
+
+**Opening windows may worsen conditions when:**
+❌ Outdoor PM2.5 is significantly higher than indoor
+❌ During high-pollution weather events (wildfire smoke, heavy traffic)
+❌ Outdoor humidity is very high and indoor humidity is already elevated
+
+Since I don't have an outdoor sensor connected, I cannot compare directly. Consider checking a local air quality service.`,
+
+  'co2 vs co': () => `These are **completely different gases** — a critical distinction:
+
+**CO₂ (Carbon Dioxide):**
+• Produced by breathing, combustion, fermentation
+• At normal outdoor levels (~420 ppm) — harmless
+• High indoor CO₂ (>1000 ppm) indicates poor ventilation
+• Causes drowsiness, reduced concentration at very high levels
+• Measured by NDIR (Non-Dispersive Infrared) sensors
+• This is what your SAQSHY sensor tracks
+
+**CO (Carbon Monoxide):**
+• Colorless, odorless, highly toxic gas
+• Produced by incomplete combustion (gas appliances, generators)
+• Dangerous at even low concentrations
+• Can be fatal — requires immediate evacuation
+• Requires a dedicated electrochemical CO sensor (NOT the same as CO₂)
+
+⚠️ **A CO alarm is a life-safety device that must operate independently of this app.** If a CO alarm activates, evacuate immediately and call emergency services.`,
+
+  'purifier': (r) => `Air purifiers can be effective when used appropriately.
+
+**Your current PM2.5: ${r.pm25.toFixed(1)} µg/m³** (${getPM25Status(r.pm25).label})
+
+**When an air purifier may be useful:**
+• PM2.5 is elevated (>12 µg/m³ WHO guideline, >35 µg/m³ moderate threshold)
+• During cooking, cleaning, or other particle-generating activities
+• When outdoor air quality is poor and windows should stay closed
+• If household members are sensitive to airborne particles
+
+**What to look for in an air purifier:**
+✅ True HEPA filter (H13 or H14) — captures particles ≥0.3 µm
+✅ Appropriate CADR (Clean Air Delivery Rate) for your room size
+✅ Carbon filter for gases/odors (optional addition)
+
+**What air purifiers do NOT do:**
+❌ Remove CO₂ (need ventilation for that)
+❌ Reduce humidity
+❌ Eliminate all chemical gases`,
+
+  'humidity': (r) => `Your current humidity: **${r.hum}%**
+
+**Recommended indoor humidity: 40–60%**
+
+${r.hum < 30 ? `⚠️ **Your humidity is low (${r.hum}%).** Very dry air may cause:
+• Dry skin and eyes
+• Irritated respiratory tract
+• Increased static electricity
+• Potential cracking in wood furniture
+
+Consider a **properly maintained humidifier**. Ensure the humidifier reservoir is cleaned regularly to prevent bacterial growth.` :
+r.hum > 65 ? `⚠️ **Your humidity is elevated (${r.hum}%).** High humidity may:
+• Promote mold and mildew growth
+• Encourage dust mite populations
+• Cause condensation on cold surfaces
+
+Consider a **dehumidifier** or improved ventilation to lower humidity.` :
+`✅ **Humidity is in the optimal range.** No action needed. Continue monitoring.`}`,
+
+  'bedroom': (r) => `Improving bedroom air quality is especially important since we spend 7–9 hours sleeping there.
+
+**Current readings (Living Room):**
+• PM2.5: ${r.pm25.toFixed(1)} µg/m³
+• CO₂: ${r.co2} ppm  
+• Humidity: ${r.hum}%
+
+**Bedroom air quality recommendations:**
+
+🌙 **Before sleep:**
+• Ventilate the room for 10–15 minutes if outdoor conditions allow
+• Target CO₂ below 800 ppm for quality sleep
+• Aim for humidity 40–55%
+
+🛏️ **Ongoing habits:**
+• Wash bedding regularly (reduces dust mites)
+• Avoid candles or incense in the bedroom
+• Keep pets out if sensitive to allergens
+• Don't store cleaning chemicals in the bedroom
+
+📊 **Consider adding a bedroom sensor** (SensorNode-02) for dedicated monitoring.
+
+⚠️ Note: These are general suggestions. I cannot access your bedroom sensor data in the current demo configuration.`,
+
+  'default': (r) => `Based on your current readings:
+• **PM2.5:** ${r.pm25.toFixed(1)} µg/m³ — ${getPM25Status(r.pm25).label}
+• **CO₂:** ${r.co2} ppm — ${getCO2Status(r.co2).label}
+• **Temperature:** ${r.temp.toFixed(1)}°C — ${getTempStatus(r.temp).label}
+• **Humidity:** ${r.hum}% — ${getHumStatus(r.hum).label}
+
+I'm here to help you understand your indoor air environment. You can ask me about:
+• What specific readings mean
+• When to open windows
+• How to use different equipment
+• The difference between air pollutants
+• What might be causing changes in your readings
+
+Please note: I provide educational information and analysis based on your sensor data. I am not a medical device and cannot diagnose health conditions or guarantee safety.`
+};
+
+function getAIResponse(message) {
+  const lower = message.toLowerCase();
+  const r = state.currentReadings;
+
+  if (lower.includes('pm2.5') || lower.includes('pm25') || lower.includes('particulate') || lower.includes('dust') || lower.includes('particle')) return AI_RESPONSES.pm25(r);
+  if (lower.includes('window') || lower.includes('open') || lower.includes('ventilat') || lower.includes('outside') || lower.includes('outdoor')) return AI_RESPONSES.window(r);
+  if ((lower.includes('co2') || lower.includes('co₂') || lower.includes('carbon')) && (lower.includes('co') || lower.includes('monoxide') || lower.includes('differ') || lower.includes('what'))) return AI_RESPONSES['co2 vs co']();
+  if (lower.includes('purifier') || lower.includes('hepa') || lower.includes('filter')) return AI_RESPONSES.purifier(r);
+  if (lower.includes('humid') || lower.includes('dry') || lower.includes('moisture')) return AI_RESPONSES.humidity(r);
+  if (lower.includes('bedroom') || lower.includes('sleep') || lower.includes('night')) return AI_RESPONSES.bedroom(r);
+  if (lower.includes('high') || lower.includes('worse') || lower.includes('bad') || lower.includes('poor') || lower.includes('elevated')) {
+    return updateAIRecText(r);
+  }
+  return AI_RESPONSES.default(r);
+}
+
+function updateAIRecText(r) {
+  const { pm25, co2, hum } = r;
+  if (pm25 >= 35) return `Your PM2.5 is currently **${pm25.toFixed(1)} µg/m³** — elevated above the WHO 24-hour guideline of 15 µg/m³.\n\nPossible causes:\n• 🍳 Cooking (especially frying, grilling)\n• 🕯️ Candles or incense\n• 🌫️ Outdoor pollution infiltrating through open windows/doors\n• 🧹 Cleaning activities\n\nRecommended actions:\n1. Identify and reduce the source if possible\n2. Use a HEPA air purifier\n3. If outdoors is cleaner, ventilate briefly\n\n*Note: These are hypotheses based on measurement patterns, not confirmed facts.*`;
+  if (co2 >= 1000) return `Your CO₂ is **${co2} ppm** — indicating insufficient ventilation for current occupancy.\n\nCO₂ rises when:\n• More people are present\n• Windows and doors are closed\n• Ventilation is inadequate\n\nTo reduce CO₂:\n1. Open windows if outdoor conditions allow\n2. Run mechanical ventilation\n3. Reduce number of occupants in the space\n\nNote: CO₂ here is a ventilation indicator, not related to carbon monoxide (CO) hazard.`;
+  if (hum < 30) return `Your humidity is **${hum}%** — below the comfortable range of 40–60%.\n\nCauses of low humidity:\n• Heating systems drying the air\n• Cold weather (cold air holds less moisture)\n• Over-ventilation in dry conditions\n\nRecommendations:\n• Consider a properly maintained humidifier\n• Target 40–50% relative humidity\n• Clean humidifier regularly to prevent bacterial growth`;
+  return `Your current readings are within acceptable ranges. All key indicators look good right now.`;
+}
+
+function formatAIResponse(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/✅/g, '<span style="color:var(--green)">✅</span>')
+    .replace(/❌/g, '<span style="color:var(--red)">❌</span>')
+    .replace(/⚠️/g, '<span style="color:var(--orange)">⚠️</span>')
+    .replace(/\n/g, '<br/>');
+}
+
+function addMessage(role, content, isTyping = false) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (isTyping) {
+    div.id = 'typing-msg';
+    div.innerHTML = `
+      <div class="msg-avatar ai">🤖</div>
+      <div>
+        <div class="msg-bubble">
+          <div class="typing-indicator">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-avatar ${role}">${role === 'ai' ? '🤖' : '👤'}</div>
+      <div>
+        <div class="msg-bubble">${role === 'ai' ? formatAIResponse(content) : content}</div>
+        <div class="msg-meta">${role === 'ai' ? 'SAQSHY AI' : 'You'} · ${time}</div>
+      </div>`;
+  }
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  input.style.height = '48px';
+  btn.disabled = true;
+
+  addMessage('user', msg);
+  const typingDiv = addMessage('ai', '', true);
+
+  // Try backend first, fall back to built-in responses
+  let response;
+  try {
+    const apiKey = document.getElementById('api-key-input')?.value || state.apiKey;
+    const backendUrl = document.getElementById('backend-url')?.value || state.backendUrl;
+
+    const res = await fetch(`${backendUrl}/api/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        sensor_context: state.currentReadings,
+        conversation_history: state.conversationHistory.slice(-10)
+      }),
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      response = data.response;
+    } else {
+      throw new Error('Backend unavailable');
+    }
+  } catch {
+    // Built-in fallback
+    await new Promise(r => setTimeout(r, 1200 + Math.random() * 800));
+    response = getAIResponse(msg);
+  }
+
+  typingDiv.remove();
+  addMessage('ai', response);
+  state.conversationHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: response });
+  btn.disabled = false;
+}
+
+function sendSuggested(el) {
+  const input = document.getElementById('chat-input');
+  input.value = el.textContent;
+  sendMessage();
+}
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = '48px';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ===== SOURCE ANALYSIS =====
+function runSourceAnalysis() {
+  const r = state.currentReadings;
+  const { pm25, co2, hum } = r;
+
+  // Update indoor sources
+  let cookingProb = 15, candlesProb = 10, cleaningProb = 5;
+  let outdoorProb = 12;
+
+  if (pm25 > 50) {
+    cookingProb = 70; candlesProb = 25; outdoorProb = 40;
+  } else if (pm25 > 25) {
+    cookingProb = 35; candlesProb = 15; outdoorProb = 20;
+  }
+
+  const indoorEl = document.getElementById('indoor-sources');
+  if (indoorEl) {
+    indoorEl.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <span>🍳 Cooking activity</span>
+          <span style="color:${cookingProb > 50 ? 'var(--orange)' : 'var(--text-muted)'};">${cookingProb > 50 ? 'High probability' : cookingProb > 25 ? 'Moderate' : 'Low probability'}</span>
+        </div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:${cookingProb}%;background:${cookingProb > 50 ? 'var(--orange)' : 'var(--green)'};"></div></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <span>🕯️ Candles / incense</span>
+          <span style="color:var(--text-muted);">${candlesProb > 25 ? 'Possible' : 'Low'}</span>
+        </div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:${candlesProb}%;background:var(--yellow);"></div></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <span>🧹 Cleaning products</span>
+          <span style="color:var(--text-muted);">Very low</span>
+        </div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:${cleaningProb}%;background:var(--green);"></div></div>
+      </div>`;
+  }
+
+  const outdoorEl = document.getElementById('outdoor-sources');
+  if (outdoorEl) {
+    outdoorEl.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <span>🚗 Traffic pollution</span>
+          <span style="color:${outdoorProb > 30 ? 'var(--orange)' : 'var(--text-muted)'};">${outdoorProb > 30 ? 'Possible' : 'Low probability'}</span>
+        </div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:${outdoorProb}%;background:var(--blue);"></div></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <span>🌪️ Regional dust / wind</span>
+          <span style="color:var(--text-muted);">No outdoor sensor</span>
+        </div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:0%;"></div></div>
+      </div>`;
+  }
+
+  // Main finding
+  let finding, evidence, alternative;
+  if (pm25 > 60) {
+    finding = `<strong style="color:var(--orange);">Elevated PM2.5 detected (${pm25.toFixed(1)} µg/m³).</strong><br/><br/>
+    Based on measurement pattern and time of day, <strong>cooking is a high-probability source</strong>. PM2.5 at this level is consistent with frying or other high-heat cooking activities.<br/><br/>
+    However, without activity logs, this is a hypothesis. It's also possible that outdoor pollution is infiltrating through open windows or ventilation.`;
+    evidence = `<span class="evidence-tag">PM2.5 spike: ${pm25.toFixed(1)} µg/m³</span><span class="evidence-tag">CO₂ stable (not from occupancy)</span><span class="evidence-tag">Pattern: rapid rise</span>`;
+    alternative = `<strong>Alternative explanations:</strong> Candle/incense use · Cleaning products · Outdoor pollution infiltration · Nearby construction<br/><strong>What to check:</strong> Note what activity was occurring when PM2.5 rose. Check outdoor air quality service.`;
+    document.getElementById('source-main-finding').querySelector('.tag').className = 'tag tag-yellow';
+    document.getElementById('source-main-finding').querySelector('.tag').textContent = 'Moderate Confidence';
+  } else if (co2 > 1000) {
+    finding = `<strong style="color:var(--yellow);">CO₂ elevated (${co2} ppm).</strong><br/><br/>
+    CO₂ rise is consistent with <strong>insufficient ventilation for current occupancy</strong>. This is the most common cause of elevated indoor CO₂.`;
+    evidence = `<span class="evidence-tag">CO₂: ${co2} ppm</span><span class="evidence-tag">PM2.5 stable (not combustion)</span><span class="evidence-tag">Pattern: gradual rise</span>`;
+    alternative = `<strong>What to check:</strong> Count occupants, check window/ventilation status. CO₂ should drop within 20 minutes of opening windows.`;
+  } else {
+    finding = `<strong style="color:var(--green);">No significant pollution sources detected.</strong><br/><br/>
+    All indoor measurements are within acceptable ranges. PM2.5 at ${pm25.toFixed(1)} µg/m³ is well below WHO guidelines. CO₂ at ${co2} ppm indicates good air exchange.`;
+    evidence = `<span class="evidence-tag">PM2.5: ${pm25.toFixed(1)} µg/m³ (Good)</span><span class="evidence-tag">CO₂: ${co2} ppm (Good)</span><span class="evidence-tag">No sudden spikes</span>`;
+    alternative = `<strong>What to check next:</strong> Continue monitoring. If values increase, note activities occurring at that time.`;
+    document.getElementById('source-main-finding').querySelector('.tag').className = 'tag tag-green';
+    document.getElementById('source-main-finding').querySelector('.tag').textContent = 'High Confidence';
+  }
+
+  setEl('source-finding-text', '');
+  document.getElementById('source-finding-text').innerHTML = finding + '<br/><br/><strong>Supporting evidence:</strong>';
+  document.getElementById('source-evidence').innerHTML = evidence;
+  document.getElementById('source-alternative').innerHTML = alternative;
+  setEl('src-co2-val', `${co2} ppm`);
+}
+
+// ===== EQUIPMENT =====
+function simulateDevice(btn, device) {
+  const isOn = btn.textContent.includes('Simulate ON') || btn.textContent.includes('Adjust');
+  btn.textContent = isOn ? '⏸ Simulate OFF' : '▶ Simulate ON';
+  btn.style.color = isOn ? 'var(--cyan)' : '';
+  btn.style.borderColor = isOn ? 'rgba(0,212,255,0.4)' : '';
+
+  const statusEl = btn.parentElement.querySelector('.device-status-badge');
+  if (statusEl) {
+    statusEl.className = `device-status-badge ${isOn ? 'device-online' : 'device-standby'}`;
+    statusEl.innerHTML = isOn ? '● Running' : '⏸ Standby';
+  }
+
+  if (isOn && (device === 'purifier')) {
+    // Simulate PM2.5 decrease
+    state.currentReadings.pm25 = Math.max(3, state.currentReadings.pm25 * 0.6);
+    updateUI(state.currentReadings);
+  }
+}
+
+// ===== SETTINGS =====
+function saveSettings() {
+  const key = document.getElementById('api-key-input')?.value;
+  const url = document.getElementById('backend-url')?.value;
+  if (key) { state.apiKey = key; localStorage.setItem('saqshy_api_key', key); }
+  if (url) { state.backendUrl = url; localStorage.setItem('saqshy_backend', url); }
+  const saved = document.getElementById('settings-saved');
+  if (saved) { saved.style.display = 'inline'; setTimeout(() => saved.style.display = 'none', 2000); }
+}
+
+// ===== EXPORT =====
+function exportReport() {
+  const r = state.currentReadings;
+  const content = `SAQSHY AIR — Environmental Report
+Generated: ${new Date().toLocaleString()}
+Mode: ${state.demo ? 'DEMO (Simulated)' : 'Live'}
+Scenario: ${state.scenario}
+
+=== Current Readings ===
+PM2.5: ${r.pm25.toFixed(1)} µg/m³ — ${getPM25Status(r.pm25).label}
+CO₂: ${r.co2} ppm — ${getCO2Status(r.co2).label}
+Temperature: ${r.temp.toFixed(1)}°C
+Humidity: ${r.hum}%
+AQI Score: ${getAQI(r)}
+
+=== Today's Summary ===
+Avg PM2.5: 5.8 µg/m³
+Peak PM2.5: 12.4 µg/m³
+Time in Good AQI: 77%
+
+=== Disclaimers ===
+• This report is generated by SAQSHY AIR MVP
+• ${state.demo ? 'Data is SIMULATED and does not represent real measurements.' : 'Data is from connected sensors.'}
+• SAQSHY AIR is not a certified life-safety device
+• Always maintain a certified CO alarm independently`;
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `saqshy-air-report-${new Date().toISOString().split('T')[0]}.txt`;
+  a.click();
+}
+
+// ===== INIT =====
+function init() {
+  // Load settings
+  const savedKey = localStorage.getItem('saqshy_api_key');
+  const savedUrl = localStorage.getItem('saqshy_backend');
+  if (savedKey) { const el = document.getElementById('api-key-input'); if (el) el.value = savedKey; }
+  if (savedUrl) { const el = document.getElementById('backend-url'); if (el) el.value = savedUrl; }
+
+  // Show demo banner (demo is on by default)
+  document.getElementById('demo-banner').style.display = 'flex';
+
+  // Generate initial data
+  const reading = generateReading();
+  updateUI(reading);
+
+  // Init charts after a brief delay (DOM ready)
+  setTimeout(() => {
+    initCharts();
+    updateUI(generateReading());
+  }, 100);
+
+  // Start live update ticker
+  setInterval(() => {
+    if (state.scenario === 'normal' || !state.scenarioInterval) {
+      tick();
+    }
+  }, 5000);
+
+  // Run initial source analysis
+  setTimeout(runSourceAnalysis, 500);
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
